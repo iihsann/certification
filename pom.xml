@@ -5,6 +5,7 @@
         <groupId>org.sakaiproject</groupId>
         <artifactId>master</artifactId>
         <version>20.2</version>
+        <relativePath>../master/pom.xml</relativePath>
     </parent>
 
     <name>Certification Base Project</name>
