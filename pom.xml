@@ -11,6 +11,7 @@
     <name>Certification Base Project</name>
     <groupId>org.sakaiproject.certification</groupId>
     <artifactId>certification-base</artifactId>
+    <version>20-SNAPSHOT</version>
     <packaging>pom</packaging>
     <organization>
         <name>Apereo Foundation - Sakai project</name>
