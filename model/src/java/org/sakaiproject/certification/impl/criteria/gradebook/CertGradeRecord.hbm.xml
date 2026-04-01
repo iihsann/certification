@@ -1,4 +1,6 @@
-<?xml version="1.0"?>
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+ "http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
 <hibernate-mapping default-cascade="none" package="org.sakaiproject.certification.api.criteria.gradebook"
 	default-lazy="false">
 	<class name="org.sakaiproject.certification.api.criteria.gradebook.CertGradeRecordObject" table="GB_GRADE_RECORD_T" discriminator-value="0">
