@@ -10,6 +10,7 @@
     <name>Certification Base Project</name>
     <groupId>org.sakaiproject.certification</groupId>
     <artifactId>certification-base</artifactId>
+    <version>22-SNAPSHOT</version>
     <packaging>pom</packaging>
     <organization>
         <name>Apereo Foundation - Sakai project</name>
@@ -23,6 +24,27 @@
         <module>model</module>
     </modules>
 
+    <repositories>
+        <repository>
+            <id>sakai-maven</id>
+            <url>https://source.sakaiproject.org/maven2/</url>
+            <releases><enabled>true</enabled></releases>
+            <snapshots><enabled>false</enabled></snapshots>
+        </repository>
+        <repository>
+            <id>repository.spring.release</id>
+            <url>https://repo.maven.apache.org/maven2</url>
+        </repository>
+        <repository>
+            <id>repository.spring.libs.release</id>
+            <url>https://repo.maven.apache.org/maven2</url>
+        </repository>
+        <repository>
+            <id>opencast</id>
+            <url>https://repo.maven.apache.org/maven2</url>
+        </repository>
+    </repositories>
+    
     <dependencyManagement>
         <dependencies>
             <dependency>
