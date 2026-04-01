@@ -27,7 +27,7 @@
     <repositories>
         <repository>
             <id>sakai-maven</id>
-            <url>https://source.sakaiproject.org/maven2/</url>
+            <url>http://source.sakaiproject.org/maven2/</url>
             <releases><enabled>true</enabled></releases>
             <snapshots><enabled>false</enabled></snapshots>
         </repository>
