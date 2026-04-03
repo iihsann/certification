@@ -18,6 +18,10 @@ package org.sakaiproject.certification.impl;
 
 import com.itextpdf.text.DocumentException;
 import com.itextpdf.text.pdf.AcroFields;
+
+// bunu ekle
+import com.itextpdf.text.pdf.BaseFont;
+
 import com.itextpdf.text.pdf.PdfReader;
 import com.itextpdf.text.pdf.PdfStamper;
 
@@ -36,6 +40,9 @@ import org.sakaiproject.certification.api.DocumentTemplateService;
 import org.sakaiproject.certification.api.TemplateReadException;
 
 public class ITextDocumentTemplateRenderEngine implements DocumentTemplateRenderEngine {
+
+    // Hataları Sakai loglarına (catalina.out) düzgün yazabilmek için Log nesnesini ekledik
+    private static final Log log = LogFactory.getLog(ITextDocumentTemplateRenderEngine.class);
 
     private static final String MIME_TYPE = "application/pdf";
     private DocumentTemplateService documentTemplateService = null;
@@ -113,6 +120,35 @@ public class ITextDocumentTemplateRenderEngine implements DocumentTemplateRender
 
             AcroFields form = stamper.getAcroFields();
 
+            // =========================================================
+            // ÇOKLU TÜRKÇE FONT YEDEKLEMESİ (FALLBACK) BAŞLANGICI
+            // =========================================================
+            try {
+                // Dockerfile aracılığıyla Tomcat'in içine gömdüğümüz font dosyalarının yolları
+                String arialPath = "/usr/local/tomcat/conf/arial.ttf";
+                String timesPath = "/usr/local/tomcat/conf/times.ttf";
+                String dejavuPath = "/usr/local/tomcat/conf/DejaVuSans.ttf";
+
+                // Fontları IDENTITY_H (UTF-8 / Unicode destekli) ve gömülü (EMBEDDED) olarak yüklüyoruz
+                BaseFont arialFont = BaseFont.createFont(arialPath, BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
+                BaseFont timesFont = BaseFont.createFont(timesPath, BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
+                BaseFont dejavuFont = BaseFont.createFont(dejavuPath, BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
+
+                // Sırayla yedek font olarak forma ekliyoruz.
+                // iText, PDF'in kendi fontunda bulamadığı her bir harf (Ö, Ç, Ş, vb.) için
+                // sırasıyla Arial, Times ve DejaVu fontlarına başvuracaktır.
+                form.addSubstitutionFont(arialFont);
+                form.addSubstitutionFont(timesFont);
+                form.addSubstitutionFont(dejavuFont);
+
+            } catch (Exception e) {
+                // Fontlar herhangi bir sebeple yüklenemezse sistemi çökertmeyip sadece logluyoruz
+                log.error("Sertifika icin Turkce fontlar yuklenemedi: " + e.getMessage());
+            }
+            // =========================================================
+            // ÇOKLU TÜRKÇE FONT YEDEKLEMESİ BİTİŞİ
+            // =========================================================
+            
             for (String key : form.getFields().keySet()) {
                 String binding = bindings.get(key);
                 form.setField(key, binding);
