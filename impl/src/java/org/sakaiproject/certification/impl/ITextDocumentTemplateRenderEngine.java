@@ -41,8 +41,6 @@ import org.sakaiproject.certification.api.TemplateReadException;
 
 public class ITextDocumentTemplateRenderEngine implements DocumentTemplateRenderEngine {
 
-    // Hataları Sakai loglarına (catalina.out) düzgün yazabilmek için Log nesnesini ekledik
-    private static final Log log = LogFactory.getLog(ITextDocumentTemplateRenderEngine.class);
 
     private static final String MIME_TYPE = "application/pdf";
     private DocumentTemplateService documentTemplateService = null;
@@ -142,13 +140,13 @@ public class ITextDocumentTemplateRenderEngine implements DocumentTemplateRender
                 form.addSubstitutionFont(dejavuFont);
 
             } catch (Exception e) {
-                // Fontlar herhangi bir sebeple yüklenemezse sistemi çökertmeyip sadece logluyoruz
-                log.error("Sertifika icin Turkce fontlar yuklenemedi: " + e.getMessage());
+                // Fontlar herhangi bir sebeple yüklenemezse sistemi çökertmeyip sadece logluyoruz. Log kütüphanesi yerine standart error output kullanıldı (Derleme hatasını engeller)
+                System.err.println("[CERTIFICATION FONT ERROR] Turkce fontlar yuklenemedi: " + e.getMessage());
             }
             // =========================================================
             // ÇOKLU TÜRKÇE FONT YEDEKLEMESİ BİTİŞİ
             // =========================================================
-            
+
             for (String key : form.getFields().keySet()) {
                 String binding = bindings.get(key);
                 form.setField(key, binding);
