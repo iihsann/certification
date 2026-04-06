@@ -123,21 +123,21 @@ public class ITextDocumentTemplateRenderEngine implements DocumentTemplateRender
             // =========================================================
             try {
                 // Dockerfile aracılığıyla Tomcat'in içine gömdüğümüz font dosyalarının yolları
-                String arialPath = "/usr/local/tomcat/conf/arial.ttf";
-                String timesPath = "/usr/local/tomcat/conf/times.ttf";
+                String sansPath = "/usr/local/tomcat/conf/LiberationSans.ttf";
+                String serifPath = "/usr/local/tomcat/conf/LiberationSerif.ttf";
                 String dejavuPath = "/usr/local/tomcat/conf/DejaVuSans.ttf";
 
                 // Fontları IDENTITY_H (UTF-8 / Unicode destekli) ve gömülü (EMBEDDED) olarak yüklüyoruz
-                BaseFont arialFont = BaseFont.createFont(arialPath, BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
-                BaseFont timesFont = BaseFont.createFont(timesPath, BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
+                BaseFont sansFont = BaseFont.createFont(sansPath, BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
+                BaseFont serifFont = BaseFont.createFont(serifPath, BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
                 BaseFont dejavuFont = BaseFont.createFont(dejavuPath, BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
 
                 // Sırayla yedek font olarak forma ekliyoruz.
                 // iText, PDF'in kendi fontunda bulamadığı her bir harf (Ö, Ç, Ş, vb.) için
                 // sırasıyla Arial, Times ve DejaVu fontlarına başvuracaktır.
-                form.addSubstitutionFont(arialFont);
-                form.addSubstitutionFont(timesFont);
-                form.addSubstitutionFont(dejavuFont);
+                form.addSubstitutionFont(serifFont); // Times New Roman muadili
+                form.addSubstitutionFont(sansFont);  // Arial muadili
+                form.addSubstitutionFont(dejavuFont); // Joker/Kurtarıcı font
 
             } catch (Exception e) {
                 // Fontlar herhangi bir sebeple yüklenemezse sistemi çökertmeyip sadece logluyoruz. Log kütüphanesi yerine standart error output kullanıldı (Derleme hatasını engeller)
