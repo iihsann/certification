@@ -119,32 +119,39 @@ public class ITextDocumentTemplateRenderEngine implements DocumentTemplateRender
             AcroFields form = stamper.getAcroFields();
 
             // =========================================================
-            // ÇOKLU TÜRKÇE FONT YEDEKLEMESİ (FALLBACK) BAŞLANGICI
+            // KESİN ÇÖZÜM: FORM ALANLARINA ZORLA UTF-8 FONT BASMA
             // =========================================================
             try {
-                // Dockerfile aracılığıyla Tomcat'in içine gömdüğümüz font dosyalarının yolları
-                String sansPath = "/usr/local/tomcat/conf/LiberationSans.ttf";
-                String serifPath = "/usr/local/tomcat/conf/LiberationSerif.ttf";
-                String dejavuPath = "/usr/local/tomcat/conf/DejaVuSans.ttf";
+                // Sadece LiberationSerif (Times New Roman muadili) kullanıyoruz.
+                // Eğer Arial istersen burayı LiberationSans.ttf yapabilirsin.
+                String fontPath = "/usr/local/tomcat/conf/LiberationSerif.ttf";
+                
+                // Fontu KESİNLİKLE IDENTITY_H (UTF-8) olarak oluştur
+                BaseFont zorunluFont = BaseFont.createFont(fontPath, BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
 
-                // Fontları IDENTITY_H (UTF-8 / Unicode destekli) ve gömülü (EMBEDDED) olarak yüklüyoruz
-                BaseFont sansFont = BaseFont.createFont(sansPath, BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
-                BaseFont serifFont = BaseFont.createFont(serifPath, BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
-                BaseFont dejavuFont = BaseFont.createFont(dejavuPath, BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
-
-                // Sırayla yedek font olarak forma ekliyoruz.
-                // iText, PDF'in kendi fontunda bulamadığı her bir harf (Ö, Ç, Ş, vb.) için
-                // sırasıyla Arial, Times ve DejaVu fontlarına başvuracaktır.
-                form.addSubstitutionFont(serifFont); // Times New Roman muadili
-                form.addSubstitutionFont(sansFont);  // Arial muadili
-                form.addSubstitutionFont(dejavuFont); // Joker/Kurtarıcı font
+                // PDF'teki tüm form alanlarını (isim, tarih vb.) dön
+                for (String key : form.getFields().keySet()) {
+                    
+                    // ACROBAT'IN AYARLARINI EZ! 
+                    // Kutucuğun fontunu ve kodlamasını zorla bizim fontumuz yap
+                    form.setFieldProperty(key, "textfont", zorunluFont, null);
+                    
+                    // Sonra veriyi (isimi/tarihi) bas
+                    String binding = bindings.get(key);
+                    form.setField(key, binding);
+                }
 
             } catch (Exception e) {
-                // Fontlar herhangi bir sebeple yüklenemezse sistemi çökertmeyip sadece logluyoruz. Log kütüphanesi yerine standart error output kullanıldı (Derleme hatasını engeller)
-                System.err.println("[CERTIFICATION FONT ERROR] Turkce fontlar yuklenemedi: " + e.getMessage());
+                System.err.println("[CERTIFICATION FONT ERROR] Turkce font zorlamasi basarisiz: " + e.getMessage());
+                
+                // Hata olursa standart yoldan basmayı dene
+                for (String key : form.getFields().keySet()) {
+                    String binding = bindings.get(key);
+                    form.setField(key, binding);
+                }
             }
             // =========================================================
-            // ÇOKLU TÜRKÇE FONT YEDEKLEMESİ BİTİŞİ
+            // KESİN ÇÖZÜM BİTİŞİ
             // =========================================================
 
             for (String key : form.getFields().keySet()) {
