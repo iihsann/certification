@@ -148,14 +148,13 @@ public class ITextDocumentTemplateRenderEngine implements DocumentTemplateRender
 
             } catch (Exception e) {
                 System.err.println("[CERTIFICATION FONT ERROR] Nihai font cozumu basarisiz: " + e.getMessage());
+                // Hata olursa standart yoldan basmayı dene
+                for (String key : form.getFields().keySet()) {
+                    String binding = bindings.get(key);
+                    form.setField(key, binding);
+                }
             }
             // =========================================================
-
-            for (String key : form.getFields().keySet()) {
-                String binding = bindings.get(key);
-                form.setField(key, binding);
-            }
-
             stamper.close();
             return new ByteArrayInputStream(baos.toByteArray());
 
