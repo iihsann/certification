@@ -119,22 +119,35 @@ public class ITextDocumentTemplateRenderEngine implements DocumentTemplateRender
             AcroFields form = stamper.getAcroFields();
 
             // =========================================================
-            // KESİN ÇÖZÜM: FORM ALANLARINA ZORLA DEJAVU (UTF-8) BASMA
+            // NİHAİ ÇÖZÜM: HEM ZORLAMA HEM YEDEKLEME (FALLBACK)
             // =========================================================
             try {
+                // 1. Ana Tankımız (Acrobat kilidini kırmak için)
                 String dejavuPath = "/usr/local/tomcat/conf/DejaVuSans.ttf";
                 BaseFont dejavuFont = BaseFont.createFont(dejavuPath, BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
 
+                // 2. Yedeklerimiz (Olur da DejaVu'da harf olmazsa diye)
+                // İstersen daha önce kopyaladığın Liberation veya Times'ı da yedek yapabilirsin
+                String serifPath = "/usr/local/tomcat/conf/LiberationSerif.ttf";
+                BaseFont serifFont = BaseFont.createFont(serifPath, BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
+
+                // PDF'teki tüm form alanlarını dön
                 for (String key : form.getFields().keySet()) {
-                    // Acrobat'ın tüm font ayarlarını zorla ezer!
+                    
+                    // ACROBAT'IN KİLİDİNİ KIR: Kutuyu zorla DejaVu yap
                     form.setFieldProperty(key, "textfont", dejavuFont, null); 
                     
                     String binding = bindings.get(key);
                     form.setField(key, binding);
                 }
 
+                // EMNİYET KEMERİ: Eğer DejaVu harfi çizmeyi başaramazsa, sisteme yedek fontları ver
+                // iText kutuyu DejaVu ile basmaya çalışırken harfi bulamazsa otomatik bunlara başvurur.
+                form.addSubstitutionFont(serifFont);
+                // form.addSubstitutionFont(cjkFont); // Çince/Asya fontun varsa buraya ekleyebilirsin
+
             } catch (Exception e) {
-                System.err.println("[CERTIFICATION FONT ERROR] Turkce font zorlamasi basarisiz: " + e.getMessage());
+                System.err.println("[CERTIFICATION FONT ERROR] Nihai font cozumu basarisiz: " + e.getMessage());
             }
             // =========================================================
 
