@@ -20,8 +20,8 @@ import com.itextpdf.text.DocumentException;
 import com.itextpdf.text.pdf.AcroFields;
 // bunları ekle
 import com.itextpdf.text.pdf.BaseFont;
-import com.lowagie.text.pdf.PdfDictionary;
-import com.lowagie.text.pdf.PdfName;
+import com.itextpdf.text.pdf.PdfDictionary;
+import com.itextpdf.text.pdf.PdfName;
 
 import com.itextpdf.text.pdf.PdfReader;
 import com.itextpdf.text.pdf.PdfStamper;
