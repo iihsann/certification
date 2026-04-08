@@ -18,7 +18,11 @@ package org.sakaiproject.certification.impl;
 
 import com.itextpdf.text.DocumentException;
 import com.itextpdf.text.pdf.AcroFields;
+// bunları ekle
 import com.itextpdf.text.pdf.BaseFont;
+import com.lowagie.text.pdf.PdfDictionary;
+import com.lowagie.text.pdf.PdfName;
+
 import com.itextpdf.text.pdf.PdfReader;
 import com.itextpdf.text.pdf.PdfStamper;
 
@@ -109,7 +113,7 @@ public class ITextDocumentTemplateRenderEngine implements DocumentTemplateRender
      *        Acrobat'ın gömülü fontunu bypass ederek sıfırdan çizer.
      */
     public InputStream render(DocumentTemplate template, Map<String, String> bindings) throws TemplateReadException {
-    assertCorrectType(template);
+        assertCorrectType(template);
 
         try {
             PdfReader reader = new PdfReader(certificateService.getTemplateFileInputStream(template.getResourceId()));
