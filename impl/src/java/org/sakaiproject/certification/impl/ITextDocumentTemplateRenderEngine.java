@@ -124,12 +124,24 @@ public class ITextDocumentTemplateRenderEngine implements DocumentTemplateRender
             try {
                 // 1. Ana Tankımız (Acrobat kilidini kırmak için)
                 String dejavuPath = "/usr/local/tomcat/conf/DejaVuSans.ttf";
-                BaseFont dejavuFont = BaseFont.createFont(dejavuPath, BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
+                BaseFont dejavuFont = null;
+                try {
+                    dejavuFont = BaseFont.createFont(dejavuPath, "Cp1254", BaseFont.EMBEDDED);
+                } catch (Exception ex) {
+                    // Cp1254 ile açılamazsa IDENTITY_H ile dene
+                    dejavuFont = BaseFont.createFont(dejavuPath, BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
+                }
 
                 // 2. Yedeklerimiz (Olur da DejaVu'da harf olmazsa diye)
                 // İstersen daha önce kopyaladığın Liberation veya Times'ı da yedek yapabilirsin
-                String serifPath = "/usr/local/tomcat/conf/LiberationSerif-Regular.ttf";
-                BaseFont serifFont = BaseFont.createFont(serifPath, BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
+                String serifPath = "/usr/local/tomcat/conf/LiberationSerif-Regular.ttf";               
+                BaseFont serifFont = null;
+                try {
+                    serifFont = BaseFont.createFont(serifPath, BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
+                } catch (Exception ex) {
+                    // IDENTITY_H  ile açılamazsa Cp1254 ile dene
+                    serifFont = BaseFont.createFont(serifPath, "Cp1254", BaseFont.EMBEDDED);
+                }
 
                 // PDF'teki tüm form alanlarını dön
                 for (String key : form.getFields().keySet()) {
