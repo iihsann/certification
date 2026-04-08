@@ -128,7 +128,7 @@ public class ITextDocumentTemplateRenderEngine implements DocumentTemplateRender
 
                 // 2. Yedeklerimiz (Olur da DejaVu'da harf olmazsa diye)
                 // İstersen daha önce kopyaladığın Liberation veya Times'ı da yedek yapabilirsin
-                String serifPath = "/usr/local/tomcat/conf/LiberationSerif.ttf";
+                String serifPath = "/usr/local/tomcat/conf/LiberationSerif-Regular.ttf";
                 BaseFont serifFont = BaseFont.createFont(serifPath, BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
 
                 // PDF'teki tüm form alanlarını dön
