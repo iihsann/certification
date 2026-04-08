@@ -85,15 +85,12 @@ public class ITextDocumentTemplateRenderEngine implements DocumentTemplateRender
             AcroFields acroFields = reader.getAcroFields();
             Map<String, AcroFields.Item> fields = acroFields.getFields();
 
-            Set<String> fieldKeys = fields.keySet();
             Set<String> textFieldKeys = new HashSet<>();
-
-            for (String key : fieldKeys) {
+            for (String key : fields.keySet()) {
                 if (acroFields.getFieldType(key) == AcroFields.FIELD_TYPE_TEXT) {
                     textFieldKeys.add(key);
                 }
             }
-
             return textFieldKeys;
 
         } catch (IOException e) {
@@ -102,11 +99,14 @@ public class ITextDocumentTemplateRenderEngine implements DocumentTemplateRender
     }
 
     /**
-     * Türkçe karakterlerin (ş, ğ, ı, ö, ü, ç vb.) PDF'e doğru yazılması için:
-     * 1. NFC normalizasyonu uygulanır (ş gibi bileşik karakterleri tek kod noktasına indirir)
-     * 2. DejaVuSans fontu Cp1254 (Windows Turkish) encoding ile yüklenir
-     * 3. Her form alanına font zorla atanır (Acrobat'ın gömülü font kilidi kırılır)
-     * 4. Yedek font (LiberationSerif) da Cp1254 ile tanımlanır
+     * Türkçe büyük harflerin (Ğ, İ, Ş vb.) PDF'e doğru yazılması için:
+     *
+     * SORUN: Cp1254 encoding Ğ (U+011E), İ (U+0130), Ş (U+015E) gibi
+     *        Türkçe büyük harfleri iText ile doğru map edemez.
+     *
+     * ÇÖZÜM: IDENTITY_H encoding kullanılır (tüm Unicode desteklenir) +
+     *        setGenerateAppearances(true) ile iText PDF görünümünü
+     *        Acrobat'ın gömülü fontunu bypass ederek sıfırdan çizer.
      */
     public InputStream render(DocumentTemplate template, Map<String, String> bindings) throws TemplateReadException {
         assertCorrectType(template);
@@ -121,35 +121,27 @@ public class ITextDocumentTemplateRenderEngine implements DocumentTemplateRender
 
             AcroFields form = stamper.getAcroFields();
 
+            // KRİTİK: iText'e "PDF'teki mevcut görünümü kullanma, sıfırdan çiz" dedirtir.
+            // Bu olmadan Acrobat'ın gömülü font ayarları override edilemez.
+            form.setGenerateAppearances(true);
+
             try {
-                // 1. Ana font: DejaVuSans - Cp1254 (Windows Turkish) encoding ile
+                // IDENTITY_H: Unicode'un tamamını destekler (Ğ, İ, Ş dahil)
+                // Cp1254 bu büyük harfleri iText ile doğru map edemediği için IDENTITY_H kullanıyoruz.
                 String dejavuPath = "/usr/local/tomcat/conf/DejaVuSans.ttf";
-                BaseFont dejavuFont;
-                try {
-                    dejavuFont = BaseFont.createFont(dejavuPath, "Cp1254", BaseFont.EMBEDDED);
-                } catch (Exception ex) {
-                    System.err.println("[CERTIFICATION FONT WARN] Cp1254 ile acilamadi, IDENTITY_H deneniyor: " + ex.getMessage());
-                    dejavuFont = BaseFont.createFont(dejavuPath, BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
-                }
+                BaseFont dejavuFont = BaseFont.createFont(dejavuPath, BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
 
-                // 2. Yedek font: LiberationSerif - Cp1254 encoding ile (serifFont da Cp1254 olmalı!)
                 String serifPath = "/usr/local/tomcat/conf/LiberationSerif-Regular.ttf";
-                BaseFont serifFont;
-                try {
-                    serifFont = BaseFont.createFont(serifPath, "Cp1254", BaseFont.EMBEDDED);
-                } catch (Exception ex) {
-                    System.err.println("[CERTIFICATION FONT WARN] Serif Cp1254 ile acilamadi, IDENTITY_H deneniyor: " + ex.getMessage());
-                    serifFont = BaseFont.createFont(serifPath, BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
-                }
+                BaseFont serifFont = BaseFont.createFont(serifPath, BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
 
-                // 3. Tüm form alanlarını işle
+                // Tüm form alanlarını işle
                 for (String key : form.getFields().keySet()) {
                     // Acrobat'ın gömülü font kilidini kır, DejaVu'yu zorla ata
                     form.setFieldProperty(key, "textfont", dejavuFont, null);
 
                     String binding = bindings.get(key);
                     if (binding != null) {
-                        // Türkçe karakterler için NFC normalizasyonu (ş → tek kod noktası)
+                        // Unicode NFC normalizasyonu: bileşik karakterleri tek kod noktasına indirir
                         binding = Normalizer.normalize(binding, Normalizer.Form.NFC);
                     } else {
                         binding = "";
@@ -159,11 +151,12 @@ public class ITextDocumentTemplateRenderEngine implements DocumentTemplateRender
                     form.setField(key, binding);
                 }
 
-                // 4. DejaVu bir karakteri çizemezse yedek olarak serifFont devreye girer
+                // DejaVu bir karakteri çizemezse yedek olarak serifFont devreye girer
                 form.addSubstitutionFont(serifFont);
 
             } catch (Exception e) {
                 System.err.println("[CERTIFICATION FONT ERROR] Font cozumu basarisiz, standart yazma deneniyor: " + e.getMessage());
+                e.printStackTrace();
                 // Hata olursa NFC normalizasyonu ile standart yoldan yazmayı dene
                 for (String key : form.getFields().keySet()) {
                     String binding = bindings.get(key);
