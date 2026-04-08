@@ -18,10 +18,7 @@ package org.sakaiproject.certification.impl;
 
 import com.itextpdf.text.DocumentException;
 import com.itextpdf.text.pdf.AcroFields;
-
-// bunu ekle
 import com.itextpdf.text.pdf.BaseFont;
-
 import com.itextpdf.text.pdf.PdfReader;
 import com.itextpdf.text.pdf.PdfStamper;
 
@@ -29,6 +26,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.text.Normalizer;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -41,13 +39,12 @@ import org.sakaiproject.certification.api.TemplateReadException;
 
 public class ITextDocumentTemplateRenderEngine implements DocumentTemplateRenderEngine {
 
-
     private static final String MIME_TYPE = "application/pdf";
     private DocumentTemplateService documentTemplateService = null;
     private CertificateService certificateService = null;
 
     public void setDocumentTemplateService(DocumentTemplateService dts) {
-        this.documentTemplateService = (DocumentTemplateService)dts;
+        this.documentTemplateService = (DocumentTemplateService) dts;
     }
 
     public DocumentTemplateService getDocumentTemplateService() {
@@ -72,7 +69,6 @@ public class ITextDocumentTemplateRenderEngine implements DocumentTemplateRender
 
     private void assertCorrectType(final DocumentTemplate template) throws TemplateReadException {
         final String mimeType = template.getOutputMimeType();
-
         if (!MIME_TYPE.equalsIgnoreCase(mimeType)) {
             throw new TemplateReadException("incorrect mime type: " + mimeType);
         }
@@ -93,7 +89,7 @@ public class ITextDocumentTemplateRenderEngine implements DocumentTemplateRender
             Set<String> textFieldKeys = new HashSet<>();
 
             for (String key : fieldKeys) {
-                if (acroFields.getFieldType(key) == (AcroFields.FIELD_TYPE_TEXT)) {
+                if (acroFields.getFieldType(key) == AcroFields.FIELD_TYPE_TEXT) {
                     textFieldKeys.add(key);
                 }
             }
@@ -101,72 +97,85 @@ public class ITextDocumentTemplateRenderEngine implements DocumentTemplateRender
             return textFieldKeys;
 
         } catch (IOException e) {
-            throw new TemplateReadException (e);
+            throw new TemplateReadException(e);
         }
     }
 
+    /**
+     * Türkçe karakterlerin (ş, ğ, ı, ö, ü, ç vb.) PDF'e doğru yazılması için:
+     * 1. NFC normalizasyonu uygulanır (ş gibi bileşik karakterleri tek kod noktasına indirir)
+     * 2. DejaVuSans fontu Cp1254 (Windows Turkish) encoding ile yüklenir
+     * 3. Her form alanına font zorla atanır (Acrobat'ın gömülü font kilidi kırılır)
+     * 4. Yedek font (LiberationSerif) da Cp1254 ile tanımlanır
+     */
     public InputStream render(DocumentTemplate template, Map<String, String> bindings) throws TemplateReadException {
         assertCorrectType(template);
 
         try {
-            PdfReader reader = new PdfReader (certificateService.getTemplateFileInputStream(template.getResourceId()));
+            PdfReader reader = new PdfReader(certificateService.getTemplateFileInputStream(template.getResourceId()));
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            PdfStamper stamper = new PdfStamper (reader, baos);
+            PdfStamper stamper = new PdfStamper(reader, baos);
 
             stamper.setFormFlattening(true);
             stamper.setFreeTextFlattening(true);
 
             AcroFields form = stamper.getAcroFields();
 
-            // =========================================================
-            // NİHAİ ÇÖZÜM: HEM ZORLAMA HEM YEDEKLEME (FALLBACK)
-            // =========================================================
             try {
-                // 1. Ana Tankımız (Acrobat kilidini kırmak için)
+                // 1. Ana font: DejaVuSans - Cp1254 (Windows Turkish) encoding ile
                 String dejavuPath = "/usr/local/tomcat/conf/DejaVuSans.ttf";
-                BaseFont dejavuFont = null;
+                BaseFont dejavuFont;
                 try {
                     dejavuFont = BaseFont.createFont(dejavuPath, "Cp1254", BaseFont.EMBEDDED);
                 } catch (Exception ex) {
-                    // Cp1254 ile açılamazsa IDENTITY_H ile dene
+                    System.err.println("[CERTIFICATION FONT WARN] Cp1254 ile acilamadi, IDENTITY_H deneniyor: " + ex.getMessage());
                     dejavuFont = BaseFont.createFont(dejavuPath, BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
                 }
 
-                // 2. Yedeklerimiz (Olur da DejaVu'da harf olmazsa diye)
-                // İstersen daha önce kopyaladığın Liberation veya Times'ı da yedek yapabilirsin
-                String serifPath = "/usr/local/tomcat/conf/LiberationSerif-Regular.ttf";               
-                BaseFont serifFont = null;
+                // 2. Yedek font: LiberationSerif - Cp1254 encoding ile (serifFont da Cp1254 olmalı!)
+                String serifPath = "/usr/local/tomcat/conf/LiberationSerif-Regular.ttf";
+                BaseFont serifFont;
                 try {
-                    serifFont = BaseFont.createFont(serifPath, BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
-                } catch (Exception ex) {
-                    // IDENTITY_H  ile açılamazsa Cp1254 ile dene
                     serifFont = BaseFont.createFont(serifPath, "Cp1254", BaseFont.EMBEDDED);
+                } catch (Exception ex) {
+                    System.err.println("[CERTIFICATION FONT WARN] Serif Cp1254 ile acilamadi, IDENTITY_H deneniyor: " + ex.getMessage());
+                    serifFont = BaseFont.createFont(serifPath, BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
                 }
 
-                // PDF'teki tüm form alanlarını dön
+                // 3. Tüm form alanlarını işle
                 for (String key : form.getFields().keySet()) {
-                    
-                    // ACROBAT'IN KİLİDİNİ KIR: Kutuyu zorla DejaVu yap
-                    form.setFieldProperty(key, "textfont", dejavuFont, null); 
-                    
+                    // Acrobat'ın gömülü font kilidini kır, DejaVu'yu zorla ata
+                    form.setFieldProperty(key, "textfont", dejavuFont, null);
+
                     String binding = bindings.get(key);
+                    if (binding != null) {
+                        // Türkçe karakterler için NFC normalizasyonu (ş → tek kod noktası)
+                        binding = Normalizer.normalize(binding, Normalizer.Form.NFC);
+                    } else {
+                        binding = "";
+                    }
+
+                    System.out.println("[CERT DEBUG] key=" + key + " value=" + binding);
                     form.setField(key, binding);
                 }
 
-                // EMNİYET KEMERİ: Eğer DejaVu harfi çizmeyi başaramazsa, sisteme yedek fontları ver
-                // iText kutuyu DejaVu ile basmaya çalışırken harfi bulamazsa otomatik bunlara başvurur.
+                // 4. DejaVu bir karakteri çizemezse yedek olarak serifFont devreye girer
                 form.addSubstitutionFont(serifFont);
-                // form.addSubstitutionFont(cjkFont); // Çince/Asya fontun varsa buraya ekleyebilirsin
 
             } catch (Exception e) {
-                System.err.println("[CERTIFICATION FONT ERROR] Nihai font cozumu basarisiz: " + e.getMessage());
-                // Hata olursa standart yoldan basmayı dene
+                System.err.println("[CERTIFICATION FONT ERROR] Font cozumu basarisiz, standart yazma deneniyor: " + e.getMessage());
+                // Hata olursa NFC normalizasyonu ile standart yoldan yazmayı dene
                 for (String key : form.getFields().keySet()) {
                     String binding = bindings.get(key);
+                    if (binding != null) {
+                        binding = Normalizer.normalize(binding, Normalizer.Form.NFC);
+                    } else {
+                        binding = "";
+                    }
                     form.setField(key, binding);
                 }
             }
-            // =========================================================
+
             stamper.close();
             return new ByteArrayInputStream(baos.toByteArray());
 
@@ -188,9 +197,9 @@ public class ITextDocumentTemplateRenderEngine implements DocumentTemplateRender
     public InputStream renderPreview(DocumentTemplate template, Map<String, String> bindings) throws TemplateReadException {
         assertCorrectType(template);
         try {
-            PdfReader reader = new PdfReader (certificateService.getTemplateFileInputStream(template.getResourceId()));
+            PdfReader reader = new PdfReader(certificateService.getTemplateFileInputStream(template.getResourceId()));
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            PdfStamper stamper = new PdfStamper (reader, baos);
+            PdfStamper stamper = new PdfStamper(reader, baos);
 
             stamper.setFormFlattening(true);
             stamper.setFreeTextFlattening(true);
