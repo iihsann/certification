@@ -20,6 +20,10 @@ import com.lowagie.text.DocumentException;
 import com.lowagie.text.pdf.AcroFields;
 import com.lowagie.text.pdf.PdfReader;
 import com.lowagie.text.pdf.PdfStamper;
+// bunları ekle
+import com.lowagie.text.pdf.BaseFont;
+import com.lowagie.text.pdf.PdfDictionary;
+import com.lowagie.text.pdf.PdfName;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -100,6 +104,17 @@ public class ITextDocumentTemplateRenderEngine implements DocumentTemplateRender
         }
     }
 
+    /**
+     * Türkçe büyük harflerin (Ğ, İ, Ş vb.) PDF'e doğru yazılması için:
+     *
+     * SORUN: Cp1254 encoding Ğ (U+011E), İ (U+0130), Ş (U+015E) gibi
+     *        Türkçe büyük harfleri iText ile doğru map edemez.
+     *
+     * ÇÖZÜM: IDENTITY_H encoding kullanılır (tüm Unicode desteklenir) +
+     *        setGenerateAppearances(true) ile iText PDF görünümünü
+     *        Acrobat'ın gömülü fontunu bypass ederek sıfırdan çizer.
+     */
+
     public InputStream render(DocumentTemplate template, Map<String, String> bindings) throws TemplateReadException {
         assertCorrectType(template);
 
@@ -113,10 +128,57 @@ public class ITextDocumentTemplateRenderEngine implements DocumentTemplateRender
 
             AcroFields form = stamper.getAcroFields();
 
-            for (String key : form.getAllFields().keySet()) {
-                String binding = bindings.get(key);
-                form.setField(key, binding);
+            // =========================================================
+            // NİHAİ "GOD MODE" ÇÖZÜMÜ: ŞABLON HAFIZASINI SİL VE UTF-8 ZORLA
+            // =========================================================
+            try {
+                // 1. ADIM: Acrobat'ın şablona gömdüğü hatalı kodlamaları (MacRoman/WinAnsi) kökten sil.
+                PdfDictionary acroFormDict = reader.getCatalog().getAsDict(PdfName.ACROFORM);
+                if (acroFormDict != null) {
+                    PdfDictionary defaultResources = acroFormDict.getAsDict(PdfName.DR);
+                    if (defaultResources != null) {
+                        // PDF'in içindeki bozuk font sözlüğünü çöpe atıyoruz
+                        defaultResources.remove(PdfName.FONT); 
+                    }
+                }
+
+                // 2. ADIM: Kendi fontlarımızı %100 UTF-8 (IDENTITY_H) olarak sisteme tanıt
+                // Ana Font: DejaVuSans (Her dili ve Türkçe karakteri kusursuz destekler)
+                String dejavuPath = "/usr/local/tomcat/conf/DejaVuSans.ttf";
+                BaseFont dejavuFont = BaseFont.createFont(dejavuPath, BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
+
+                // Yedek Font (Emniyet Kemeri): LiberationSerif
+                String serifPath = "/usr/local/tomcat/conf/LiberationSerif.ttf";
+                BaseFont serifFont = BaseFont.createFont(serifPath, BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
+
+                // 3. ADIM: Tüm kutucukları dön, fontu sıfırdan yaz ve veriyi bas
+                for (String key : form.getFields().keySet()) {
+                    
+                    // Kutucuğun fontunu zorla DejaVu yap
+                    form.setFieldProperty(key, "textfont", dejavuFont, null);
+                    
+                    // Veriyi (İsim/Tarih vb.) bas
+                    String binding = bindings.get(key);
+                    form.setField(key, binding);
+                }
+
+                // 4. ADIM: DejaVu'nun bile çizemediği Asya dilleri vs. gelirse yedeğe başvur
+                form.addSubstitutionFont(serifFont);
+
+            } catch (Exception e) {
+                System.err.println("[CERTIFICATION FONT ERROR] God Mode Font zorlamasi basarisiz: " + e.getMessage());
+                
+                // Eğer nükleer seçenek bir şekilde patlarsa (ki çok zor), eski usül basmayı dene
+                for (String key : form.getAllFields().keySet()) {
+                    String binding = bindings.get(key);
+                    form.setField(key, binding);
+                }
             }
+            // =========================================================
+            // GOD MODE BİTİŞİ
+            // =========================================================
+
+            
 
             stamper.close();
             return new ByteArrayInputStream(baos.toByteArray());
