@@ -152,7 +152,7 @@ public class ITextDocumentTemplateRenderEngine implements DocumentTemplateRender
                 BaseFont serifFont = BaseFont.createFont(serifPath, BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
 
                 // 3. ADIM: Tüm kutucukları dön, fontu sıfırdan yaz ve veriyi bas
-                for (String key : form.getFields().keySet()) {
+                for (String key : form.getAllFields().keySet()) {
                     
                     // Kutucuğun fontunu zorla DejaVu yap
                     form.setFieldProperty(key, "textfont", dejavuFont, null);
