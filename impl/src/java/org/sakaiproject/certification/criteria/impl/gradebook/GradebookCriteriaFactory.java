@@ -657,7 +657,11 @@ public class GradebookCriteriaFactory implements CriteriaFactory {
                         return null;
                     }
 
-                    return Double.parseDouble(FormatHelper.inputStringToFormatString(gradingService.getAssignmentScoreString(contextId, contextId, itemId, userId)));
+                    String scoreString = gradingService.getAssignmentScoreString(contextId, contextId, itemId, userId);
+                    if (scoreString == null || scoreString.trim().isEmpty()) {
+                        return null;
+                    }
+                    return Double.parseDouble(FormatHelper.inputStringToFormatString(scoreString));
                 }
             });
 
