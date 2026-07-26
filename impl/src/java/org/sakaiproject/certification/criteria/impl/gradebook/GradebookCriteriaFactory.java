@@ -18,6 +18,7 @@ package org.sakaiproject.certification.criteria.impl.gradebook;
 
 import java.text.DateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -707,6 +708,19 @@ public class GradebookCriteriaFactory implements CriteriaFactory {
         }
     }
 
+    public Map<String, CourseGradeTransferBean> getFinalCourseGrades(final String contextId, final List<String> userIds) {
+        try {
+            return (Map<String, CourseGradeTransferBean>) doSecureGradebookAction(new SecureGradebookActionCallback() {
+                public Object doSecureAction() {
+                    return gradingService.getCourseGradeForStudents(contextId, contextId, userIds);
+                }
+            });
+        } catch (Exception e) {
+            log.error("getFinalCourseGrades - an exception occurred while retrieving final course grades for {} users in {}.", userIds.size(), contextId, e);
+            return Collections.emptyMap();
+        }
+    }
+
     public Date getDateRecorded(final Long itemId, final String userId, final String contextId, boolean useCaching) {
         boolean cached = false;
         Date dateRecorded = null;
@@ -904,16 +918,17 @@ public class GradebookCriteriaFactory implements CriteriaFactory {
          * Eventually, the number of FinalGradeScore criteria will be limited to one,
          * but that's not implemented at the time of writing.
          */
-        // TODO: we'd like to use the gb code's calculations (GradebookManager.getPointsEarnedCourseGradeRecords) and use that logic everywhere that calculates final grades
-        Map<String, Double> userToScoreMap= new HashMap<>();
+        // Bulk fetch all course grades for students in a single query to prevent N+1 performance issues
+        Map<String, Double> userToScoreMap = new HashMap<>();
         Map<String, Date> userToDateRecordedMap = new HashMap<>();
         if (critCollection != null && !critCollection.isEmpty()) {
+            Map<String, CourseGradeTransferBean> courseGrades = getFinalCourseGrades(contextId, userIds);
             for (String userId : userIds) {
-                // TODO: if using the GradebookManager's final course grade calculation is too much to ask for, then we should create getFinalScores(final List<String> userIds, final String contextId);
-                userToScoreMap.put(userId, getFinalScore(userId, contextId));
-
-                // TODO: if 'getFinalScores' is too much to ask for, getting this date may be duplicating queries in 'getFinalGradeScore'
-                userToDateRecordedMap.put(userId, getFinalGradeDateRecorded(userId, contextId));
+                CourseGradeTransferBean courseGrade = courseGrades.get(userId);
+                Double score = (courseGrade != null) ? courseGrade.getPointsEarned() : null;
+                Date dateRecorded = (courseGrade != null) ? courseGrade.getDateRecorded() : null;
+                userToScoreMap.put(userId, score);
+                userToDateRecordedMap.put(userId, dateRecorded);
             }
         }
 
